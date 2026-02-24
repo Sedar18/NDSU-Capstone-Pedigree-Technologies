@@ -4,17 +4,25 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import android.os.Handler
+import android.os.Looper
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var swipeRefreshLayout: SwipeRefreshLayout
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: DeviceAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. Find the RecyclerView from the layout
-        val recyclerView = findViewById<RecyclerView>(R.id.deviceList)
+        // Find views
+        recyclerView = findViewById(R.id.deviceList)
+        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout)
 
-        // 2. Create some fake Bluetooth devices
+        // Create fake Bluetooth devices
         val fakeDevices = listOf(
             BluetoothDevice("AA:BB:CC:DD:EE:FF", "Device A", 32.5, 85, "Connected", "2024-01-15 10:30"),
             BluetoothDevice("11:22:33:44:55:66", "Device B", 31.8, 92, "Connected", "2024-01-15 10:28"),
@@ -23,8 +31,22 @@ class MainActivity : AppCompatActivity() {
             BluetoothDevice("66:77:88:99:AA:BB", "Device E", 32.0, 95, "Connected", "2024-01-15 10:31")
         )
 
-        // 3. Set up the RecyclerView
+        // Set up RecyclerView
         recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = DeviceAdapter(fakeDevices)
+        adapter = DeviceAdapter(fakeDevices)
+        recyclerView.adapter = adapter
+
+        // Set up swipe-to-refresh
+        swipeRefreshLayout.setOnRefreshListener {
+            refreshDevices()
+        }
+    }
+
+    private fun refreshDevices() {
+        // Simulate a refresh delay (like fetching from Bluetooth)
+        Handler(Looper.getMainLooper()).postDelayed({
+            // In a real app, you'd fetch new data here
+            swipeRefreshLayout.isRefreshing = false
+        }, 1500)
     }
 }
