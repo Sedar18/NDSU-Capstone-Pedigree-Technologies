@@ -28,7 +28,8 @@ class DeviceAdapter(private val devices: List<BluetoothDevice>) : RecyclerView.A
         private val lastUpdated: TextView = itemView.findViewById(R.id.lastUpdated)
 
         fun bind(device: BluetoothDevice) {
-            deviceName.text = device.name
+            // Show device name and MAC address
+            deviceName.text = "${device.name}\nMAC: ${device.id}"
             tirePressure.text = "Tire Pressure: ${device.tirePressure} PSI"
             batteryLevel.text = "Battery: ${device.batteryLevel}%"
             connectionStatus.text = "Status: ${device.connectionStatus}"
