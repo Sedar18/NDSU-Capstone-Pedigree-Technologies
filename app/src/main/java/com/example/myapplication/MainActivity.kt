@@ -8,11 +8,14 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -113,6 +116,14 @@ class MainActivity : AppCompatActivity() {
 
         // Start UI refresh task to update "last seen" times
         startUiRefreshTask()
+
+        // Start foreground scanning service
+        startForegroundScanService()
+
+        // Send test notification 3 seconds after app opens
+        Handler(Looper.getMainLooper()).postDelayed({
+            testNotification()
+        }, 3000)
     }
 
     private fun checkPermissionsAndScan() {
@@ -206,9 +217,10 @@ class MainActivity : AppCompatActivity() {
                     Log.d("MainActivity", "Asset found: ${result.assetName} (${result.alarms.size} alarms)")
                     addOrUpdateAsset(result.assetId, result.assetName, macAddress, timestamp, result.alarms)
 
-                    // Show notification if alarms exist
+                    // Show notification and vibrate if alarms exist
                     if (result.alarms.isNotEmpty()) {
                         showAlarmNotification(result.assetName, result.alarms)
+                        vibratePhone()
                     }
                 }
                 is AlarmCheckResult.Error -> {
@@ -294,7 +306,7 @@ class MainActivity : AppCompatActivity() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle(notificationTitle)
-            .setContentText("") // Can leave empty or add additional details
+            .setContentText("")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
@@ -304,6 +316,52 @@ class MainActivity : AppCompatActivity() {
         }
 
         Log.d("MainActivity", "Notification sent for $assetName: $alarmNames")
+    }
+
+    private fun testNotification() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            Log.w("MainActivity", "Notification permission not granted")
+            return
+        }
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Test Notification")
+            .setContentText("This is a test - notifications are working!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+
+        with(NotificationManagerCompat.from(this)) {
+            notify(9999, notification)
+        }
+
+        vibratePhone()
+        Log.d("MainActivity", "Test notification sent")
+    }
+
+    private fun vibratePhone() {
+        val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Modern Android - use VibrationEffect
+            val vibrationEffect = VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE)
+            vibrator.vibrate(vibrationEffect)
+        } else {
+            // Older Android - deprecated but still works
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(500)
+        }
+    }
+
+    private fun startForegroundScanService() {
+        val serviceIntent = Intent(this, ScanService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+        Log.d("MainActivity", "Foreground scan service started")
     }
 
     private fun startUiRefreshTask() {
