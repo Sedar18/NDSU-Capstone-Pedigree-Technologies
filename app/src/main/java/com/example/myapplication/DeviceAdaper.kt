@@ -28,12 +28,24 @@ class DeviceAdapter(private val devices: List<BluetoothDevice>) : RecyclerView.A
         private val lastUpdated: TextView = itemView.findViewById(R.id.lastUpdated)
 
         fun bind(device: BluetoothDevice) {
-            // Show device name and MAC address
             deviceName.text = "${device.name}\nMAC: ${device.id}"
             tirePressure.text = "Tire Pressure: ${device.tirePressure} PSI"
             batteryLevel.text = "Battery: ${device.batteryLevel}%"
             connectionStatus.text = "Status: ${device.connectionStatus}"
-            lastUpdated.text = "Updated: ${device.lastUpdated}"
+            lastUpdated.text = "Last seen: ${getTimeAgo(device.lastSeenTimestamp)}"
+        }
+
+        private fun getTimeAgo(timestamp: Long): String {
+            val currentTime = System.currentTimeMillis()
+            val diffInSeconds = (currentTime - timestamp) / 1000
+
+            return when {
+                diffInSeconds < 10 -> "Just now"
+                diffInSeconds < 60 -> "$diffInSeconds seconds ago"
+                diffInSeconds < 120 -> "1 minute ago"
+                diffInSeconds < 3600 -> "${diffInSeconds / 60} minutes ago"
+                else -> "${diffInSeconds / 3600} hours ago"
+            }
         }
     }
 }

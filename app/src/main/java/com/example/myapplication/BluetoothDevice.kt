@@ -6,7 +6,7 @@ data class BluetoothDevice(
     val tirePressure: Double,
     val batteryLevel: Int,
     val connectionStatus: String,
-    val lastUpdated: String
+    val lastSeenTimestamp: Long  // milliseconds
 ) {
     override fun toString(): String {
         return "$name ($id)"
