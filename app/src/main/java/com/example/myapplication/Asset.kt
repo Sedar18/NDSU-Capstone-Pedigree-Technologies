@@ -10,6 +10,7 @@ data class Asset(
     val assetName: String,
     val sensors: MutableList<SensorInfo>,
     var alarmCount: Int = 0,
+    var alarmNames: List<String> = emptyList(), // Added this field
     var lastSeenTimestamp: Long
 ) {
     fun updateLastSeen(timestamp: Long) {

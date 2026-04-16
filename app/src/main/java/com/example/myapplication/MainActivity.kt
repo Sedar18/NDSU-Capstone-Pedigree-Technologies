@@ -49,9 +49,6 @@ class MainActivity : AppCompatActivity() {
     // Whitelist prefix for Pedigree sensors
     private val PEDIGREE_MAC_PREFIX = "34:EE:2"
 
-    // 10 minutes in milliseconds
-    private val DEVICE_EXPIRY_TIME = 10 * 60 * 1000L
-
     // Alarm checker instance
     private val alarmChecker = AlarmChecker()
 
@@ -111,19 +108,11 @@ class MainActivity : AppCompatActivity() {
         // Request permissions and start scanning
         checkPermissionsAndScan()
 
-        // Start cleanup task to remove old assets every 30 seconds
-        startCleanupTask()
-
         // Start UI refresh task to update "last seen" times
         startUiRefreshTask()
 
         // Start foreground scanning service
         startForegroundScanService()
-
-        // Send test notification 3 seconds after app opens
-        Handler(Looper.getMainLooper()).postDelayed({
-            testNotification()
-        }, 3000)
     }
 
     private fun checkPermissionsAndScan() {
@@ -231,19 +220,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun addOrUpdateAsset(assetId: String, assetName: String, sensorMac: String, timestamp: Long, alarms: List<String>) {
-
         runOnUiThread {
             if (assetsMap.containsKey(assetId)) {
                 // Asset exists, add sensor to it
                 val asset = assetsMap[assetId]!!
                 asset.addOrUpdateSensor(sensorMac, timestamp)
                 asset.alarmCount = alarms.size
+                asset.alarmNames = alarms // Store alarm names
 
                 // Update in list
                 val index = assetsList.indexOfFirst { it.assetId == assetId }
                 if (index != -1) {
                     assetsList[index] = asset
-                    adapter.notifyItemChanged(index)
+                    sortAndRefreshList()
                 }
             } else {
                 // New asset, create it
@@ -252,14 +241,24 @@ class MainActivity : AppCompatActivity() {
                     assetName = assetName,
                     sensors = mutableListOf(SensorInfo(sensorMac, timestamp)),
                     alarmCount = alarms.size,
+                    alarmNames = alarms, // Store alarm names
                     lastSeenTimestamp = timestamp
                 )
 
                 assetsMap[assetId] = newAsset
-                assetsList.add(0, newAsset) // Add at top
-                adapter.notifyItemInserted(0)
+                assetsList.add(newAsset)
+                sortAndRefreshList()
             }
         }
+    }
+
+    private fun sortAndRefreshList() {
+        // Sort: alarms first (by count descending), then alphabetically
+        assetsList.sortWith(
+            compareByDescending<Asset> { it.alarmCount }
+                .thenBy { it.assetName }
+        )
+        adapter.notifyDataSetChanged()
     }
 
     private fun updateSensorTimestamp(sensorMac: String, timestamp: Long) {
@@ -318,37 +317,13 @@ class MainActivity : AppCompatActivity() {
         Log.d("MainActivity", "Notification sent for $assetName: $alarmNames")
     }
 
-    private fun testNotification() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            Log.w("MainActivity", "Notification permission not granted")
-            return
-        }
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("Test Notification")
-            .setContentText("This is a test - notifications are working!")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .build()
-
-        with(NotificationManagerCompat.from(this)) {
-            notify(9999, notification)
-        }
-
-        vibratePhone()
-        Log.d("MainActivity", "Test notification sent")
-    }
-
     private fun vibratePhone() {
         val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Modern Android - use VibrationEffect
             val vibrationEffect = VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE)
             vibrator.vibrate(vibrationEffect)
         } else {
-            // Older Android - deprecated but still works
             @Suppress("DEPRECATION")
             vibrator.vibrate(500)
         }
@@ -367,51 +342,12 @@ class MainActivity : AppCompatActivity() {
     private fun startUiRefreshTask() {
         handler.post(object : Runnable {
             override fun run() {
-                // Refresh the entire list to update "last seen" times
                 runOnUiThread {
                     adapter.notifyDataSetChanged()
                 }
                 handler.postDelayed(this, 5000) // Refresh every 5 seconds
             }
         })
-    }
-
-    private fun startCleanupTask() {
-        handler.post(object : Runnable {
-            override fun run() {
-                removeExpiredAssets()
-                handler.postDelayed(this, 30000) // Run every 30 seconds
-            }
-        })
-    }
-
-    private fun removeExpiredAssets() {
-        val currentTime = System.currentTimeMillis()
-        val expiredAssets = mutableListOf<String>()
-
-        // Find expired assets
-        for ((assetId, asset) in assetsMap) {
-            if (currentTime - asset.lastSeenTimestamp > DEVICE_EXPIRY_TIME) {
-                expiredAssets.add(assetId)
-            }
-        }
-
-        // Remove expired assets
-        for (assetId in expiredAssets) {
-            assetsMap.remove(assetId)
-
-            // Remove sensors from checked set
-            val asset = assetsMap[assetId]
-            asset?.sensors?.forEach { sensor ->
-                checkedSensors.remove(sensor.macAddress)
-            }
-
-            val index = assetsList.indexOfFirst { it.assetId == assetId }
-            if (index != -1) {
-                assetsList.removeAt(index)
-                adapter.notifyItemRemoved(index)
-            }
-        }
     }
 
     override fun onDestroy() {

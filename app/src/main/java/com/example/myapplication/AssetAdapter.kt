@@ -32,9 +32,10 @@ class AssetAdapter(private val assets: List<Asset>) : RecyclerView.Adapter<Asset
             val sensorInfo = asset.sensors.joinToString("\n") { "  • ${it.macAddress}" }
             deviceName.text = "${asset.assetName}\n${sensorInfo}"
 
-            // Show alarm status
+            // Show alarm status with alarm names
             val alarmStatus = if (asset.alarmCount > 0) {
-                "🚨 ${asset.alarmCount} Active Alarm${if (asset.alarmCount > 1) "s" else ""}"
+                val alarmNames = asset.alarmNames.joinToString(", ")
+                "🚨 Active Alarms: $alarmNames"
             } else {
                 "✅ No Alarms"
             }
