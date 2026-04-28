@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import android.content.Context
 import com.google.gson.annotations.SerializedName
 import okhttp3.Credentials
 import okhttp3.Interceptor
@@ -10,12 +11,6 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
-
-// ========== API CREDENTIALS ==========
-// TODO: Replace these with your actual OneView credentials
-private const val API_USERNAME = "sedar.hebib"
-private const val API_PASSWORD = "Maximus134$"
-// =====================================
 
 // Data class for asset response
 data class AssetResponse(
@@ -60,9 +55,18 @@ interface Pt1ViewApi {
 // API Client singleton
 object ApiClient {
     private const val BASE_URL = "https://testing.pt1view.com/"
+    private var currentUsername: String = ""
+    private var currentPassword: String = ""
+
+    // Initialize credentials from SharedPreferences
+    fun init(context: Context) {
+        val sharedPrefs = context.getSharedPreferences("LoginPrefs", Context.MODE_PRIVATE)
+        currentUsername = sharedPrefs.getString("username", "") ?: ""
+        currentPassword = sharedPrefs.getString("password", "") ?: ""
+    }
 
     private val authInterceptor = Interceptor { chain ->
-        val credential = Credentials.basic(API_USERNAME, API_PASSWORD)
+        val credential = Credentials.basic(currentUsername, currentPassword)
         val request = chain.request().newBuilder()
             .header("Authorization", credential)
             .build()

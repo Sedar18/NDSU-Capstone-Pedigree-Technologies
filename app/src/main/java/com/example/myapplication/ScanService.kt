@@ -26,7 +26,6 @@ class ScanService : Service() {
     private var scanning = false
     private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
 
-    private val checkedSensors = mutableSetOf<String>()
     private val alarmChecker = AlarmChecker()
 
     private val PEDIGREE_MAC_PREFIX = "34:EE:2"
@@ -39,6 +38,9 @@ class ScanService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        ApiClient.init(this)
+
         Log.d("ScanService", "Service created")
 
         // Create notification channels
@@ -168,10 +170,17 @@ class ScanService : Service() {
                     return
                 }
 
-                // Check if we've already looked up this sensor
-                if (!checkedSensors.contains(deviceAddress)) {
-                    checkedSensors.add(deviceAddress)
-                    checkSensorForAlarms(deviceAddress)
+                val currentTime = System.currentTimeMillis()
+
+                // Check if this sensor already belongs to an existing asset
+                val existingAsset = SensorRepository.findAssetBySensorMac(deviceAddress)
+
+                if (existingAsset != null) {
+                    // Asset exists, just update timestamp
+                    SensorRepository.updateSensorTimestamp(deviceAddress, currentTime)
+                } else {
+                    // New sensor, check API for asset info
+                    checkSensorForAlarms(deviceAddress, currentTime)
                 }
             }
         }
@@ -182,7 +191,7 @@ class ScanService : Service() {
         }
     }
 
-    private fun checkSensorForAlarms(macAddress: String) {
+    private fun checkSensorForAlarms(macAddress: String, timestamp: Long) {
         val sensorName = "BT_" + macAddress.replace(":", "")
 
         Log.d("ScanService", "Checking sensor: $sensorName")
@@ -192,9 +201,20 @@ class ScanService : Service() {
                 is AlarmCheckResult.Success -> {
                     Log.d("ScanService", "Asset found: ${result.assetName} (${result.alarms.size} alarms)")
 
-                    if (result.alarms.isNotEmpty()) {
+                    // Add to repository
+                    SensorRepository.addOrUpdateAsset(
+                        result.assetId,
+                        result.assetName,
+                        macAddress,
+                        timestamp,
+                        result.alarms
+                    )
+
+                    // Show notification and vibrate if alarms exist AND we haven't notified yet
+                    if (result.alarms.isNotEmpty() && !SensorRepository.hasNotifiedAsset(result.assetId)) {
                         showAlarmNotification(result.assetName, result.alarms)
                         vibratePhone()
+                        SensorRepository.markAssetNotified(result.assetId)
                     }
                 }
                 is AlarmCheckResult.Error -> {

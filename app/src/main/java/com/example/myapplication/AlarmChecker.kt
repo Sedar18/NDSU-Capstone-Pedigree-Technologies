@@ -2,12 +2,12 @@ package com.example.myapplication
 
 import android.util.Log
 
-// Updated sealed class for API results
+// Updated for API results
 sealed class AlarmCheckResult {
     data class Success(
         val assetId: String,
         val assetName: String,
-        val alarms: List<String>  // Changed from alarmCount to list of alarm names
+        val alarms: List<String>  // Changed to list of alarm names
     ) : AlarmCheckResult()
     data class Error(val message: String) : AlarmCheckResult()
 }
